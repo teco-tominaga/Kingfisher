@@ -35,16 +35,8 @@ struct KFImageRenderer<HoldingView> : View, Sendable where HoldingView: KFImageH
     
     @StateObject var binder: KFImage.ImageBinder = .init()
     let context: KFImage.Context<HoldingView>
-    
     var body: some View {
-        if context.startLoadingBeforeViewAppear && !binder.loadingOrSucceeded && !binder.animating {
-            binder.markLoading()
-            Task.detached(priority:.background) {
-                await binder.start(context: context)
-            }
-        }
-        
-        return ZStack {
+        ZStack {
             renderedImage().opacity(binder.loaded ? 1.0 : 0.0)
             if binder.loadedImage == nil {
                 ZStack {
@@ -77,6 +69,14 @@ struct KFImageRenderer<HoldingView> : View, Sendable where HoldingView: KFImageH
                     } else if context.reducePriorityOnDisappear {
                         binder.reducePriorityOnDisappear()
                     }
+                }
+            }
+        }
+        .onAppear {
+            if context.startLoadingBeforeViewAppear && !binder.loadingOrSucceeded && !binder.animating {
+                binder.markLoading()
+                Task.detached(priority:.background) {
+                    await binder.start(context: context)
                 }
             }
         }
