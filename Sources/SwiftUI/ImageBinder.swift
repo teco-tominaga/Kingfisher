@@ -65,7 +65,7 @@ extension KFImage {
             }
         }
 
-        func start<HoldingView: KFImageHoldingView>(context: Context<HoldingView>) {
+        nonisolated func start<HoldingView: KFImageHoldingView>(context: Context<HoldingView>) async {
             guard let source = context.source else {
                 CallbackQueueMain.currentOrAsync {
                     context.onFailureDelegate.call(KingfisherError.imageSettingError(reason: .emptySource))
@@ -77,16 +77,18 @@ extension KFImage {
                 }
                 return
             }
-
-            loading = true
-            
-            progress = .init()
-            downloadTask = KingfisherManager.shared
+            Task { @MainActor in
+                loading = true
+                progress = .init()
+            }
+            let tmpDownloadTask = KingfisherManager.shared
                 .retrieveImage(
                     with: source,
                     options: context.options,
                     progressBlock: { size, total in
-                        self.updateProgress(downloaded: size, total: total)
+                        Task { @MainActor in
+                            self.updateProgress(downloaded: size, total: total)
+                        }
                         context.onProgressDelegate.call((size, total))
                     },
                     completionHandler: { [weak self] result in
@@ -131,6 +133,9 @@ extension KFImage {
                             }
                         }
                 })
+            Task { @MainActor in
+                downloadTask = tmpDownloadTask
+            }
         }
         
         private func updateProgress(downloaded: Int64, total: Int64) {

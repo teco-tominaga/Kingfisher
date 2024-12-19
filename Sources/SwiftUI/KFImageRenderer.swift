@@ -31,7 +31,7 @@ import Combine
 /// A Kingfisher compatible SwiftUI `View` to load an image from a `Source`.
 /// Declaring a `KFImage` in a `View`'s body to trigger loading from the given `Source`.
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView {
+struct KFImageRenderer<HoldingView> : View, Sendable where HoldingView: KFImageHoldingView {
     
     @StateObject var binder: KFImage.ImageBinder = .init()
     let context: KFImage.Context<HoldingView>
@@ -39,7 +39,9 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
     var body: some View {
         if context.startLoadingBeforeViewAppear && !binder.loadingOrSucceeded && !binder.animating {
             binder.markLoading()
-            DispatchQueue.main.async { binder.start(context: context) }
+            Task.detached(priority:.background) {
+                await binder.start(context: context)
+            }
         }
         
         return ZStack {
@@ -57,7 +59,9 @@ struct KFImageRenderer<HoldingView> : View where HoldingView: KFImageHoldingView
                         return
                     }
                     if !binder.loadingOrSucceeded {
-                        binder.start(context: context)
+                        Task {
+                            await binder.start(context: context)
+                        }
                     } else {
                         if context.reducePriorityOnDisappear {
                             binder.restorePriorityOnAppear()
